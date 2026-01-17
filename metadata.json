@@ -1,0 +1,9 @@
+{
+  "name": "GeminiCast OBS-Lite",
+  "description": "A professional-grade desktop streaming and recording application built with React, Tailwind, and simulated FFmpeg integration.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
