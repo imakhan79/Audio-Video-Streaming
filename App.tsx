@@ -30,11 +30,23 @@ const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [cameras, setCameras] = useState<DeviceInfo[]>([]);
   const [activeTab, setActiveTab] = useState<'scenes' | 'sources'>('scenes');
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [showStats, setShowStats] = useState(true);
+  const [showLogs, setShowLogs] = useState(true);
   
+  const menuRef = useRef<HTMLDivElement>(null);
   const activeScene = state.scenes.find(s => s.id === state.activeSceneId) || state.scenes[0];
 
   useEffect(() => {
     deviceManager.getCameras().then(setCameras);
+    
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setActiveMenu(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const addLog = useCallback((msg: string) => {
@@ -108,6 +120,50 @@ const App: React.FC = () => {
     addLog(`Added source: ${name}`);
   };
 
+  const createNewScene = () => {
+    const newScene: Scene = {
+      id: `s-${Date.now()}`,
+      name: `Scene: ${state.scenes.length + 1}`,
+      sources: []
+    };
+    setState(prev => ({ ...prev, scenes: [...prev.scenes, newScene], activeSceneId: newScene.id }));
+    addLog("Created new scene.");
+    setActiveMenu(null);
+  };
+
+  const deleteActiveScene = () => {
+    if (state.scenes.length <= 1) {
+      addLog("Cannot delete the last scene.");
+      return;
+    }
+    const newScenes = state.scenes.filter(s => s.id !== state.activeSceneId);
+    setState(prev => ({ ...prev, scenes: newScenes, activeSceneId: newScenes[0].id }));
+    addLog("Deleted scene.");
+    setActiveMenu(null);
+  };
+
+  const toggleMenu = (menu: string) => {
+    setActiveMenu(activeMenu === menu ? null : menu);
+  };
+
+  const MenuDropdown = ({ items }: { items: { label: string; action: () => void; shortcut?: string; variant?: 'default' | 'danger' }[] }) => (
+    <div className="absolute top-full left-0 mt-1 w-56 bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 rounded-xl shadow-2xl py-2 z-[60] overflow-hidden">
+      {items.map((item, idx) => (
+        <button
+          key={idx}
+          onClick={() => {
+            item.action();
+            setActiveMenu(null);
+          }}
+          className={`w-full flex items-center justify-between px-4 py-2.5 text-[11px] font-medium transition-colors ${item.variant === 'danger' ? 'text-red-400 hover:bg-red-500/10' : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'}`}
+        >
+          <span>{item.label}</span>
+          {item.shortcut && <span className="text-[9px] text-zinc-600 font-mono">{item.shortcut}</span>}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <div className="flex flex-col h-screen bg-[#09090b] text-zinc-100 overflow-hidden font-sans select-none">
       {/* Top Header */}
@@ -117,11 +173,65 @@ const App: React.FC = () => {
             <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center font-black text-sm shadow-lg shadow-blue-500/20">G</div>
             <span className="font-bold text-sm tracking-tight">GeminiCast <span className="text-zinc-500 font-medium ml-1">Pro v1.2</span></span>
           </div>
-          <nav className="flex gap-6 text-[11px] font-bold uppercase tracking-wider text-zinc-500">
-            <button className="hover:text-white transition-colors">File</button>
-            <button className="hover:text-white transition-colors">Edit</button>
-            <button className="hover:text-white transition-colors">View</button>
-            <button className="hover:text-white transition-colors">Tools</button>
+          <nav className="flex gap-1 text-[11px] font-bold uppercase tracking-wider text-zinc-500" ref={menuRef}>
+            <div className="relative">
+              <button 
+                onClick={() => toggleMenu('file')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${activeMenu === 'file' ? 'bg-zinc-800 text-white border border-white/20' : 'hover:text-white'}`}
+              >File</button>
+              {activeMenu === 'file' && (
+                <MenuDropdown items={[
+                  { label: 'New Profile', action: () => addLog('Creating new profile...') },
+                  { label: 'Import Profile', action: () => addLog('Open file picker...') },
+                  { label: 'Export Profile', action: () => addLog('Saving profile.json...') },
+                  { label: 'Settings', action: () => setIsSettingsOpen(true), shortcut: 'Ctrl+,' },
+                  { label: 'Exit', action: () => window.close(), variant: 'danger' }
+                ]} />
+              )}
+            </div>
+            <div className="relative">
+              <button 
+                onClick={() => toggleMenu('edit')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${activeMenu === 'edit' ? 'bg-zinc-800 text-white border border-white/20' : 'hover:text-white'}`}
+              >Edit</button>
+              {activeMenu === 'edit' && (
+                <MenuDropdown items={[
+                  { label: 'Undo', action: () => {}, shortcut: 'Ctrl+Z' },
+                  { label: 'Redo', action: () => {}, shortcut: 'Ctrl+Y' },
+                  { label: 'New Scene', action: createNewScene },
+                  { label: 'Delete Scene', action: deleteActiveScene, variant: 'danger' },
+                  { label: 'Copy Scene Link', action: () => addLog('Copied scene hash.') }
+                ]} />
+              )}
+            </div>
+            <div className="relative">
+              <button 
+                onClick={() => toggleMenu('view')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${activeMenu === 'view' ? 'bg-zinc-800 text-white border border-white/20' : 'hover:text-white'}`}
+              >View</button>
+              {activeMenu === 'view' && (
+                <MenuDropdown items={[
+                  { label: showStats ? 'Hide Feedback Stats' : 'Show Feedback Stats', action: () => setShowStats(!showStats) },
+                  { label: showLogs ? 'Hide System Logs' : 'Show System Logs', action: () => setShowLogs(!showLogs) },
+                  { label: 'Reset UI Layout', action: () => { setShowStats(true); setShowLogs(true); } },
+                  { label: 'Toggle Fullscreen', action: () => {}, shortcut: 'F11' }
+                ]} />
+              )}
+            </div>
+            <div className="relative">
+              <button 
+                onClick={() => toggleMenu('tools')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${activeMenu === 'tools' ? 'bg-zinc-800 text-white border border-white/20' : 'hover:text-white'}`}
+              >Tools</button>
+              {activeMenu === 'tools' && (
+                <MenuDropdown items={[
+                  { label: 'Virtual Camera', action: () => addLog('Virtual camera driver enabled.') },
+                  { label: 'AI Scene Switcher', action: () => addLog('Configuring AI patterns...') },
+                  { label: 'Check for Updates', action: () => addLog('Checking GitHub releases...') },
+                  { label: 'Output Timer', action: () => {} }
+                ]} />
+              )}
+            </div>
           </nav>
         </div>
         <div className="flex items-center gap-4">
@@ -195,22 +305,42 @@ const App: React.FC = () => {
         <div className="flex-1 flex flex-col gap-6">
           <Preview scene={activeScene} isStreaming={state.isStreaming} />
           
-          <div className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-xl flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-               <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Live Feedback & Debug</h3>
-               <div className="flex items-center gap-4 text-[10px] font-mono text-zinc-400">
-                  <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div> FPS: {state.isStreaming ? '60.0' : '0.0'}</span>
-                  <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-green-500"></div> Bitrate: {state.stats.bitrate} kb/s</span>
-               </div>
-            </div>
-            <div className="flex-1 bg-black/50 rounded-xl p-4 font-mono text-[11px] text-zinc-400 overflow-y-auto space-y-1.5 border border-zinc-800/50 scrollbar-thin">
-               {state.logs.map((log, i) => (
-                 <div key={i} className={log.includes('[Engine]') ? 'text-blue-400/80' : log.includes('error') ? 'text-red-400' : ''}>
-                    {log}
-                 </div>
-               ))}
-               <div className="animate-pulse">_</div>
-            </div>
+          <div className="flex-1 flex flex-col gap-6">
+            {showStats && (
+              <div className="h-24 bg-zinc-900 border border-zinc-800 rounded-2xl p-4 shadow-xl flex items-center justify-between">
+                <div className="space-y-1">
+                  <h3 className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Output Stats</h3>
+                  <div className="flex gap-6 text-[10px] font-mono">
+                    <span className="text-zinc-400">FPS: <span className={state.isStreaming ? 'text-green-400' : 'text-zinc-600'}>{state.isStreaming ? '60.0' : '0.0'}</span></span>
+                    <span className="text-zinc-400">Bitrate: <span className={state.isStreaming ? 'text-blue-400' : 'text-zinc-600'}>{state.stats.bitrate} kb/s</span></span>
+                    <span className="text-zinc-400">Dropped: <span className="text-zinc-600">0 (0.0%)</span></span>
+                  </div>
+                </div>
+                <div className="w-1/3 bg-zinc-950 h-8 rounded-lg overflow-hidden flex items-center px-4">
+                  <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500 w-[14%]" />
+                  </div>
+                  <span className="ml-4 text-[9px] font-mono text-zinc-500">CPU 14.2%</span>
+                </div>
+              </div>
+            )}
+            
+            {showLogs && (
+              <div className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-xl flex flex-col min-h-0">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">System Log</h3>
+                  <button onClick={() => setState(prev => ({ ...prev, logs: [`[System] Log cleared.`] }))} className="text-[9px] text-zinc-600 hover:text-zinc-400 transition-colors">Clear All</button>
+                </div>
+                <div className="flex-1 bg-black/50 rounded-xl p-4 font-mono text-[11px] text-zinc-400 overflow-y-auto space-y-1.5 border border-zinc-800/50 scrollbar-thin">
+                  {state.logs.map((log, i) => (
+                    <div key={i} className={log.includes('[Engine]') ? 'text-blue-400/80' : log.includes('error') ? 'text-red-400' : ''}>
+                        {log}
+                    </div>
+                  ))}
+                  <div className="animate-pulse">_</div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -232,7 +362,7 @@ const App: React.FC = () => {
              <h4 className="text-xs font-black uppercase tracking-widest mb-2 text-blue-400">Pro Feature</h4>
              <h3 className="text-lg font-bold mb-4 leading-tight">AI Scene Switcher</h3>
              <p className="text-xs text-zinc-400 mb-6">Let Gemini detect your focus and automatically switch scenes based on gameplay or interaction.</p>
-             <button className="w-full py-3 bg-white text-zinc-900 rounded-xl font-black text-xs uppercase hover:bg-zinc-200 transition-all shadow-xl shadow-white/10">Configure AI</button>
+             <button onClick={() => addLog("AI Assistant activated in monitor mode.")} className="w-full py-3 bg-white text-zinc-900 rounded-xl font-black text-xs uppercase hover:bg-zinc-200 transition-all shadow-xl shadow-white/10">Configure AI</button>
           </div>
 
           <div className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-xl">
