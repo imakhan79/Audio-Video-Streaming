@@ -1,55 +1,50 @@
 
-import { Profile, Scene } from './types';
+import { Profile, Scene, EncoderSettings } from './types';
 
-export const DEFAULT_ENCODER_SETTINGS = {
-  encoder: 'x264' as const,
+export const DEFAULT_ENCODER: EncoderSettings = {
+  encoder: 'libx264',
   bitrate: 4500,
-  rateControl: 'CBR' as const,
+  fps: 60,
+  resolution: '1920x1080',
   preset: 'veryfast',
   keyframeInterval: 2,
-  resolution: '1920x1080',
-  fps: 60,
 };
 
-export const DEFAULT_PROFILE: Profile = {
-  id: 'default',
-  name: 'YouTube High Def',
+export const INITIAL_PROFILE: Profile = {
+  id: 'p-default',
+  name: 'Standard 1080p',
   platform: 'youtube',
-  streamKey: '',
   rtmpUrl: 'rtmp://a.rtmp.youtube.com/live2',
-  encoderSettings: DEFAULT_ENCODER_SETTINGS,
+  streamKey: '',
+  encoderSettings: DEFAULT_ENCODER,
+  recordPath: './recordings',
+  recordFormat: 'mp4',
 };
 
 export const INITIAL_SCENES: Scene[] = [
   {
-    id: 'scene-1',
-    name: 'Main Scene',
+    id: 's-1',
+    name: 'Scene: Gameplay',
     sources: [
       {
-        id: 'source-bg',
-        name: 'Background Gradient',
-        type: 'color',
+        id: 'bg-1',
+        name: 'Screen Capture',
+        type: 'screen',
         visible: true,
         locked: true,
         x: 0,
         y: 0,
         width: 1920,
         height: 1080,
-        volume: 0,
-        muted: true,
-        contentUrl: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
-        zIndex: 0,
+        volume: 80,
+        muted: false,
+        zIndex: 0
       }
-    ],
+    ]
   },
   {
-    id: 'scene-2',
-    name: 'Just Chatting',
-    sources: [],
-  },
-  {
-    id: 'scene-3',
-    name: 'Be Right Back',
-    sources: [],
+    id: 's-2',
+    name: 'Scene: Just Chatting',
+    sources: []
   }
 ];

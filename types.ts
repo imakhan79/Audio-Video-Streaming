@@ -1,5 +1,7 @@
 
-export type SourceType = 'webcam' | 'screen' | 'window' | 'image' | 'color' | 'media';
+export type SourceType = 'webcam' | 'screen' | 'window' | 'image' | 'media';
+export type Platform = 'youtube' | 'twitch' | 'facebook' | 'custom';
+export type Encoder = 'libx264' | 'h264_nvenc' | 'h264_qsv' | 'h264_videotoolbox' | 'h264_amf';
 
 export interface Source {
   id: string;
@@ -13,8 +15,8 @@ export interface Source {
   height: number;
   volume: number;
   muted: boolean;
-  deviceId?: string;
-  contentUrl?: string;
+  deviceId?: string; // For webcam/mic
+  filePath?: string; // For images/videos
   zIndex: number;
 }
 
@@ -24,32 +26,33 @@ export interface Scene {
   sources: Source[];
 }
 
-export interface StreamStats {
-  fps: number;
-  bitrate: number;
-  droppedFrames: number;
-  cpuUsage: number;
-  gpuUsage: number;
-  uptime: string;
-}
-
 export interface EncoderSettings {
-  encoder: 'x264' | 'h264_nvenc' | 'h264_qsv' | 'h264_amf';
-  bitrate: number;
-  rateControl: 'CBR' | 'VBR';
+  encoder: Encoder;
+  bitrate: number; // in kbps
+  fps: number;
+  resolution: string; // "1920x1080"
   preset: string;
   keyframeInterval: number;
-  resolution: string;
-  fps: number;
 }
 
 export interface Profile {
   id: string;
   name: string;
-  platform: 'youtube' | 'twitch' | 'facebook' | 'custom';
-  streamKey: string;
+  platform: Platform;
   rtmpUrl: string;
+  streamKey: string;
   encoderSettings: EncoderSettings;
+  recordPath: string;
+  recordFormat: 'mp4' | 'mkv' | 'flv';
+}
+
+export interface StreamStats {
+  status: 'idle' | 'starting' | 'live' | 'error';
+  uptime: string;
+  bitrate: number;
+  fps: number;
+  droppedFrames: number;
+  cpuUsage: number;
 }
 
 export interface AppState {
@@ -57,7 +60,7 @@ export interface AppState {
   activeSceneId: string;
   isStreaming: boolean;
   isRecording: boolean;
-  stats: StreamStats;
   currentProfile: Profile;
+  stats: StreamStats;
   logs: string[];
 }
